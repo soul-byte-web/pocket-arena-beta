@@ -3,25 +3,25 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Pocket Arena - Brotato Style (Prototype)</title>
+<title>Pocket Arena — Full Rework (feat/full-rework)</title>
 <style>
-  :root{--bg:#04040a;--neon:#5ef7ff;--accent:#ff5ef0;}
+  :root{--bg:#0b0b10;--ui:#cfefff;}
   html,body{height:100%;margin:0;background:var(--bg);font-family:Inter,Segoe UI,system-ui,-apple-system,Arial;}
-  canvas#game{display:block;position:fixed;inset:0;width:100%;height:100%;}
-  #ui{position:fixed;inset:0;pointer-events:none;z-index:10}
-  .top{position:absolute;left:12px;top:12px;color:#cfeffa;pointer-events:none}
-  .barOuter{width:320px;height:14px;background:rgba(255,255,255,0.03);border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.04)}
-  .barInner{height:100%;width:50%;background:linear-gradient(90deg,var(--neon),var(--accent));box-shadow:0 0 12px rgba(94,247,255,0.12) inset}
-  #levelup{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:auto}
-  .card{background:linear-gradient(180deg,rgba(255,255,255,0.03),rgba(0,0,0,0.4));border:1px solid rgba(255,255,255,0.04);padding:12px;border-radius:10px;margin:8px;width:220px;text-align:center;color:#eef}
-  .bigBtn{pointer-events:auto;background:linear-gradient(90deg,var(--neon),var(--accent));border:none;padding:12px 20px;border-radius:12px;color:#04040a;font-weight:800}
+  canvas{display:block;position:fixed;inset:0;width:100%;height:100%;background:#07070a}
+  #ui{position:fixed;inset:0;pointer-events:none;z-index:60}
+  .hud{position:absolute;left:12px;top:12px;color:var(--ui);pointer-events:none}
+  .barOuter{width:360px;height:14px;background:rgba(255,255,255,0.03);border-radius:10px;overflow:hidden;border:1px solid rgba(255,255,255,0.04)}
+  .barInner{height:100%;width:50%;background:linear-gradient(90deg,#ffd35e,#ff5ef0);box-shadow:0 0 12px rgba(255,211,94,0.06) inset}
   #startScreen,#gameoverScreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;pointer-events:auto}
+  .bigBtn{pointer-events:auto;background:linear-gradient(90deg,#ffd35e,#ff5ef0);border:none;padding:12px 20px;border-radius:12px;color:#04040a;font-weight:800}
+  #levelup{position:fixed;inset:0;display:none;align-items:center;justify-content:center;pointer-events:auto;z-index:80}
+  .card{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(0,0,0,0.5));border:1px solid rgba(255,255,255,0.04);padding:12px;border-radius:10px;margin:8px;width:220px;text-align:center;color:#eef}
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="ui">
-  <div class="top">
+  <div class="hud">
     <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
       <div style="font-weight:700;letter-spacing:1px">HP</div>
       <div class="barOuter"><div id="hpFill" class="barInner"></div></div>
@@ -31,269 +31,44 @@
       <div class="barOuter"><div id="xpFill" class="barInner"></div></div>
     </div>
   </div>
-  <div id="levelup" class="hidden" style="display:none">
+  <div id="levelup">
     <div style="background:radial-gradient(circle,#00102188,#0006);padding:18px;border-radius:12px;display:flex;gap:12px;align-items:flex-start">
-      <div style="min-width:420px;">
+      <div style="min-width:640px;">
         <div style="color:#fff;font-weight:900;font-size:20px;margin-bottom:8px">LEVEL UP</div>
         <div id="cardRow" style="display:flex;gap:8px;flex-wrap:wrap"></div>
       </div>
     </div>
   </div>
-  <div id="startScreen" style="background:radial-gradient(circle at 50% 30%, rgba(20,10,40,0.9), rgba(2,2,8,0.97));">
+  <div id="startScreen">
     <h1 style="color:white;font-size:48px;margin:0">POCKET ARENA</h1>
-    <p style="color:#9fdcff;max-width:580px;text-align:center">Prototype: Brotato-style top-down arena. Procedural sprite atlas, animations, audio, item cards, and more. Click to begin.</p>
+    <p style="color:#cfefff;max-width:680px;text-align:center">Full rework branch. Using free placeholder art for now. Click to begin — I will continue building the full Brotato-style experience on this branch.</p>
     <button class="bigBtn" id="startBtn">ENTER ARENA</button>
   </div>
-  <div id="gameoverScreen" class="hidden" style="display:none">
+  <div id="gameoverScreen" style="display:none">
     <h1 style="color:#ff4040;font-size:40px;margin:0">YOU FELL</h1>
     <div id="gameoverStats" style="color:#cdeaff"></div>
     <button class="bigBtn" id="retryBtn">TRY AGAIN</button>
   </div>
 </div>
-
-<script>
-(() => {
-'use strict';
-
-/* ==========================================================
-   Brotato-style prototype: single-file playable demo.
-   - Programmatic pixel-sprite atlas (so repo remains simple)
-   - Animation system, sprite rendering
-   - Waves, enemies, bosses, level-up cards
-   - Simple WebAudio SFX (synth) and music loop
-   - Modular sections for future asset replacement
-   ========================================================== */
+<script type="module">
+import { Game } from './src/game.js';
 
 const canvas = document.getElementById('game');
-const ctx = canvas.getContext('2d');
-let DPR = Math.min(window.devicePixelRatio||1, 2);
-function resize(){
-  canvas.width = Math.floor(window.innerWidth * DPR);
-  canvas.height = Math.floor(window.innerHeight * DPR);
-  canvas.style.width = window.innerWidth + 'px';
-  canvas.style.height = window.innerHeight + 'px';
-  ctx.setTransform(DPR,0,0,DPR,0,0);
-}
-window.addEventListener('resize', resize); resize();
+const game = new Game(canvas);
 
-const TAU = Math.PI*2;
-function rand(a,b){return a + Math.random()*(b-a);} function rint(a,b){return Math.floor(rand(a,b+1));}
-function clamp(v,a,b){return v<a?a:(v>b?b:v);} function lerp(a,b,t){return a+(b-a)*t;}
-function dist2(x1,y1,x2,y2){const dx=x2-x1,dy=y2-y1;return dx*dx+dy*dy;} function dist(x1,y1,x2,y2){return Math.sqrt(dist2(x1,y1,x2,y2));}
+document.getElementById('startBtn').addEventListener('click', async ()=>{
+  document.getElementById('startScreen').style.display='none';
+  await game.init();
+  game.start();
+});
 
-/* ===================== ASSET ATLAS (procedural pixel sprites) ===================== */
-const Atlas = (function(){
-  const cell = 48; // base pixel art cell (will be scaled)
-  const scale = 2; // final scale
-  const cols = 8; const rows = 8;
-  const atlasCanvas = document.createElement('canvas');
-  atlasCanvas.width = cols * cell * scale; atlasCanvas.height = rows * cell * scale;
-  const actx = atlasCanvas.getContext('2d');
-  actx.imageSmoothingEnabled = false;
+document.getElementById('retryBtn').addEventListener('click', ()=>{
+  document.getElementById('gameoverScreen').style.display='none';
+  game.reset(); game.start();
+});
 
-  // helper draw pixel scaled
-  function drawPixelBlock(ax,ay,w,h,color){
-    actx.fillStyle = color; actx.fillRect(ax*scale, ay*scale, w*scale, h*scale);
-  }
-
-  function clearCell(cx,cy){ actx.clearRect(cx*cell*scale, cy*cell*scale, cell*scale, cell*scale); }
-  function cellToXY(cx,cy){ return {x:cx*cell*scale, y:cy*cell*scale}; }
-
-  // draw a simple player sprite (8x8 pixel shape scaled)
-  function drawPlayer(cx,cy){ const base = cell; const off = cellToXY(cx,cy);
-    // draw background
-    actx.fillStyle = 'rgba(0,0,0,0)'; actx.clearRect(off.x, off.y, base*scale, base*scale);
-    // design a chunky pixel hero
-    const px = (sx,sy,col)=> drawPixelBlock((off.x/scale)+sx, (off.y/scale)+sy, 1,1,col);
-    // helmet/body
-    for(let y=1;y<7;y++) for(let x=2;x<6;x++) px(x,y,'#bdfcff');
-    px(3,0,'#6ef6ff'); px(4,0,'#6ef6ff');
-    // visor
-    for(let x=2;x<6;x++) px(x,2,'#002b3a');
-    // boots / accents
-    px(2,6,'#7a5cff'); px(5,6,'#ff5ef0');
-  }
-
-  function drawEnemy(cx,cy,color){ const base=cell; const off=cellToXY(cx,cy);
-    actx.clearRect(off.x, off.y, base*scale, base*scale);
-    const px=(sx,sy,col)=> drawPixelBlock((off.x/scale)+sx, (off.y/scale)+sy,1,1,col);
-    // simple blob enemy with eye
-    for(let y=1;y<7;y++) for(let x=1;x<7;x++) px(x,y,color);
-    px(3,2,'#000'); px(4,2,'#000');
-    // teeth
-    px(2,5,'#fff'); px(5,5,'#fff');
-  }
-
-  function drawBullet(cx,cy,color){ const off=cellToXY(cx,cy); actx.clearRect(off.x, off.y, cell*scale, cell*scale);
-    const px=(sx,sy,col)=> drawPixelBlock((off.x/scale)+sx, (off.y/scale)+sy,1,1,col);
-    px(3,2,color); px(3,3,color); px(3,4,color); px(3,5,color);
-    px(2,3,color); px(4,3,color);
-  }
-
-  function drawGem(cx,cy,color){ const off=cellToXY(cx,cy); actx.clearRect(off.x, off.y, cell*scale, cell*scale);
-    const px=(sx,sy,col)=> drawPixelBlock((off.x/scale)+sx, (off.y/scale)+sy,1,1,col);
-    px(3,2,color); px(2,3,color); px(3,3,color); px(4,3,color); px(3,4,color);
-  }
-
-  // populate atlas with different sprites
-  drawPlayer(0,0);
-  drawEnemy(1,0,'#4dff9e');
-  drawEnemy(2,0,'#ff8a3d');
-  drawEnemy(3,0,'#c98cff');
-  drawEnemy(4,0,'#fff35e');
-  drawBullet(5,0,'#bdfcff');
-  drawBullet(6,0,'#ff9b4a');
-  drawGem(7,0,'#7a5cff');
-
-  // small icons for cards
-  function drawIcon(cx,cy,chr){ const off=cellToXY(cx,cy); actx.clearRect(off.x, off.y, cell*scale, cell*scale); actx.fillStyle='#fff'; actx.font = (10*scale)+'px monospace'; actx.textAlign='center'; actx.textBaseline='middle'; actx.fillText(chr, off.x + (cell*scale)/2, off.y + (cell*scale)/2); }
-  drawIcon(0,1,'⚡'); drawIcon(1,1,'🔥'); drawIcon(2,1,'❤'); drawIcon(3,1,'✚'); drawIcon(4,1,'◌'); drawIcon(5,1,'💥');
-
-  return {
-    canvas: atlasCanvas,
-    cell: cell*scale,
-    cols, rows,
-    drawSprite: function(name, ctx, x, y, opts={}){
-      // mapping name -> cell index
-      const map = {player:[0,0], enemy1:[1,0], enemy2:[2,0], enemy3:[3,0], enemy4:[4,0], bullet:[5,0], fire:[6,0], gem:[7,0], icon1:[0,1], icon2:[1,1], icon3:[2,1]};
-      const c = map[name] || [5,0];
-      const sx = c[0]*this.cell, sy = c[1]*this.cell;
-      const w = this.cell, h = this.cell;
-      const s = opts.scale || 1;
-      ctx.save(); ctx.imageSmoothingEnabled = false;
-      ctx.translate(x, y);
-      if(opts.angle) ctx.rotate(opts.angle);
-      ctx.drawImage(this.canvas, sx, sy, w, h, -w/2*s, -h/2*s, w*s, h*s);
-      ctx.restore();
-    }
-  };
-})();
-
-/* ===================== AUDIO (tiny synth for SFX) ===================== */
-const AudioSys = (function(){
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const master = ctx.createGain(); master.connect(ctx.destination); master.gain.value = 0.12;
-  function playTone(freq, time=0.06, type='sine', vol=0.6){
-    const o = ctx.createOscillator(); const g = ctx.createGain(); o.type = type; o.frequency.value = freq; o.connect(g); g.connect(master);
-    g.gain.value = vol; o.start(); o.stop(ctx.currentTime + time);
-    g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + time);
-  }
-  function click(){ playTone(1200,0.06,'square',0.5); }
-  function shoot(){ playTone(900,0.08,'sawtooth',0.12); }
-  function boom(){ playTone(160,0.8,'sine',0.6); playTone(600,0.12,'triangle',0.18); }
-  function levelup(){ playTone(900,0.12,'sine',0.35); playTone(1200,0.12,'sine',0.25); }
-  function musicStart(){ /* simple ambient drone */
-    if(AudioSys._music) return; const o = ctx.createOscillator(); const o2 = ctx.createOscillator(); const g = ctx.createGain(); o.type='sine'; o2.type='sine'; o.frequency.value=110; o2.frequency.value=220; g.gain.value=0.02; o.connect(g); o2.connect(g); g.connect(master); o.start(); o2.start(); AudioSys._music = {o,o2,g};
-  }
-  return {ctx, click, shoot, boom, levelup, musicStart};
-})();
-
-/* ===================== GAME STATE ===================== */
-let W = window.innerWidth, H = window.innerHeight;
-let state = 'start';
-const ARENA_R = 1600;
-
-const player = {x:0,y:0, r:18, hp:100, maxHp:100, xp:0, xpNext:12, lvl:1, speed:260, fireRate:3.2, fireTimer:0, damage:10, multishot:0, alive:true, facing:0};
-const bullets = []; const enemies = []; const xpGems = []; const particles = [];
-let wave = 0, score=0, boss=null;
-
-/* ===================== INPUT ===================== */
-const input = {mx:0,my:0,moving:false};
-window.addEventListener('mousemove', e=>{ input.mx = (e.clientX - window.innerWidth/2); input.my = (e.clientY - window.innerHeight/2); input.moving = true; });
-window.addEventListener('touchmove', e=>{ const t = e.touches[0]; input.mx = (t.clientX - window.innerWidth/2); input.my = (t.clientY - window.innerHeight/2); input.moving=true; }, {passive:false});
-
-/* ===================== SPAWNING & WAVES ===================== */
-function startNextWave(){ wave++; spawnWave();}
-function spawnWave(){ const count = 8 + Math.floor(wave*1.6); for(let i=0;i<count;i++){ const a=rand(0,TAU); const r=rand(420,800); enemies.push({x:player.x+Math.cos(a)*r, y:player.y+Math.sin(a)*r, vx:0, vy:0, speed:rand(60,160)+wave*4, hp:20+wave*6, maxHp:20+wave*6, type: i%6, radius:12}); } }
-
-/* ===================== WEAPON / BULLETS ===================== */
-function shootAt(targetX,targetY){ if(!player.alive) return; const baseAngle = Math.atan2(targetY-player.y, targetX-player.x); const cnt = 1 + player.multishot; const spread = Math.min(0.9, 0.12*(cnt-1)); for(let i=0;i<cnt;i++){ const t = cnt===1?0:(i/(cnt-1)-0.5)*2; const a = baseAngle + t*spread; const speed = 720; bullets.push({x:player.x, y:player.y, vx:Math.cos(a)*speed, vy:Math.sin(a)*speed, dmg:player.damage, life:1.5}); } AudioSys.shoot(); }
-
-/* ===================== UPGRADES / LEVEL UP ===================== */
-const UPGRADES = [ {key:'dmg',name:'Power Cells',desc:'+12% Damage',apply:p=>p.damage*=1.12,icon:'icon1'}, {key:'firerate',name:'Rapid Fire',desc:'+15% Fire Rate',apply:p=>p.fireRate*=1.15,icon:'icon2'}, {key:'hp',name:'Vital Core',desc:'+20 Max HP',apply:p=>{p.maxHp+=20;p.hp+=20;},icon:'icon3'} ];
-let pendingLevel = 0;
-function grantXP(v){ player.xp += v; while(player.xp >= player.xpNext){ player.xp -= player.xpNext; player.lvl++; player.xpNext = Math.floor(player.xpNext*1.25 + 4); pendingLevel++; openLevelUp(); } }
-
-function pickUpgrades(n){ const pool = UPGRADES.slice(); const out = []; for(let i=0;i<n;i++){ if(pool.length===0) break; const idx = rint(0,pool.length-1); out.push(pool[idx]); pool.splice(idx,1); } return out; }
-
-function openLevelUp(){ state='levelup'; showLevelUp(); }
-function showLevelUp(){ const row = document.getElementById('cardRow'); row.innerHTML=''; const choices = pickUpgrades(3); choices.forEach(u=>{ const div = document.createElement('div'); div.className='card'; div.innerHTML = '<div style="font-weight:800;color:#fff">'+u.name+'</div><div style="color:#9fdcff;margin:6px 0">'+u.desc+'</div>'; const c = document.createElement('canvas'); c.width=64; c.height=64; c.style.width='64px'; c.style.height='64px'; div.prepend(c); Atlas.drawSprite(u.icon, c.getContext('2d'), 32,32, {scale:1}); div.addEventListener('click', ()=>{ u.apply(player); pendingLevel = Math.max(0, pendingLevel-1); document.getElementById('levelup').style.display='none'; state='playing'; AudioSys.levelup(); }); row.appendChild(div); }); document.getElementById('levelup').style.display='flex'; }
-
-/* ===================== UPDATE LOOPS ===================== */
-function update(dt){ if(state==='playing'){
-  // player movement - simple drift toward mouse
-  const tx = (input.mx||0)/Math.max(200, Math.abs(input.mx)||200);
-  // keep player centered as arena origin
-  player.fireTimer -= dt; if(player.fireTimer <= 0){ const mouseX = (input.mx||0) + window.innerWidth/2; const mouseY = (input.my||0) + window.innerHeight/2; shootAt(mouseX, mouseY); player.fireTimer = 1/Math.max(0.1, player.fireRate); }
-
-  // bullets
-  for(let i=bullets.length-1;i>=0;i--){ const b=bullets[i]; b.x += b.vx*dt; b.y += b.vy*dt; b.life -= dt; if(b.life<=0) bullets.splice(i,1); else{ // collisions
-      for(let j=enemies.length-1;j>=0;j--){ const e=enemies[j]; if(dist2(b.x,b.y,e.x,e.y) < (e.radius+4)*(e.radius+4)){ e.hp -= b.dmg; bullets.splice(i,1); if(e.hp<=0){ score += 10; spawnBurst(e.x,e.y); xpGems.push({x:e.x,y:e.y,vx:0,vy:0,value:2}); enemies.splice(j,1); } break; } }
-    }
-  }
-
-  // enemies
-  for(const e of enemies){ const ang = Math.atan2(player.y - e.y, player.x - e.x); e.x += Math.cos(ang)*e.speed*dt; e.y += Math.sin(ang)*e.speed*dt; if(dist(e.x,e.y,player.x,player.y) < e.radius+player.r){ damagePlayer(8*dt*6); } }
-
-  // xp gems
-  for(let i=xpGems.length-1;i>=0;i--){ const g=xpGems[i]; const d = dist(g.x,g.y,player.x,player.y); if(d < 26){ grantXP(g.value); xpGems.splice(i,1); } else if(d<160){ const a = Math.atan2(player.y-g.y, player.x-g.x); g.vx += Math.cos(a)*dt*160; g.vy += Math.sin(a)*dt*160; g.x += g.vx*dt; g.y += g.vy*dt; } }
-
-  // spawn wave
-  if(enemies.length < 2){ startNextWave(); }
-
-  // boss
-  if(boss){ /* boss logic */ }
- }
- // particles
- for(let i=particles.length-1;i>=0;i--){ const p=particles[i]; p.life-=dt; if(p.life<=0) particles.splice(i,1); else { p.x+=p.vx*dt; p.y+=p.vy*dt; } }
-}
-
-function spawnBurst(x,y){ for(let i=0;i<14;i++){ particles.push({x,y,vx:rand(-160,160),vy:rand(-160,160),life:0.6}); } AudioSys.boom(); }
-
-function damagePlayer(amount){ if(!player.alive) return; player.hp -= amount; if(player.hp <= 0){ player.alive=false; triggerGameOver(); } }
-
-/* ===================== RENDER ===================== */
-function worldToScreen(x,y){ return [x, y]; }
-function render(){ ctx.clearRect(0,0,canvas.width/DPR, canvas.height/DPR); ctx.save(); ctx.translate(canvas.width/DPR/2, canvas.height/DPR/2);
-  // background
-  ctx.fillStyle = '#03030a'; ctx.fillRect(-canvas.width/DPR/2, -canvas.height/DPR/2, canvas.width/DPR, canvas.height/DPR);
-  // arena boundary
-  ctx.save(); ctx.strokeStyle='rgba(255,255,255,0.03)'; ctx.lineWidth=6; ctx.beginPath(); ctx.arc(0,0,ARENA_R,0,TAU); ctx.stroke(); ctx.restore();
-
-  // gems
-  for(const g of xpGems){ Atlas.drawSprite('gem', ctx, g.x, g.y, {scale:0.8}); }
-  // enemies
-  for(const e of enemies){ Atlas.drawSprite('enemy'+(e.type+1), ctx, e.x, e.y, {scale:0.9}); // HP bar
-    ctx.fillStyle='rgba(0,0,0,0.5)'; ctx.fillRect(e.x-18, e.y-e.radius-10, 36,6); ctx.fillStyle='#ff5ef0'; ctx.fillRect(e.x-18, e.y-e.radius-10, 36*clamp(e.hp/e.maxHp,0,1),6);
-  }
-  // bullets
-  for(const b of bullets){ Atlas.drawSprite('bullet', ctx, b.x, b.y, {scale:0.6}); }
-  // player
-  if(player.alive) Atlas.drawSprite('player', ctx, player.x, player.y, {scale:1.2});
-
-  // particles
-  for(const p of particles){ ctx.fillStyle='rgba(200,240,255,0.9)'; ctx.fillRect(p.x-2,p.y-2,4,4); }
-
-  ctx.restore();
-}
-
-/* ===================== UI UPDATE ===================== */
-function updateUI(){ document.getElementById('hpFill').style.width = clamp(player.hp/player.maxHp*100,0,100)+'%'; document.getElementById('xpFill').style.width = clamp(player.xp/player.xpNext*100,0,100)+'%'; }
-
-/* ===================== GAMEOVER ===================== */
-function triggerGameOver(){ state='gameover'; document.getElementById('gameoverStats').innerHTML = 'Score: <b>'+score+'</b><br>Wave: <b>'+wave+'</b><br>Level: <b>'+player.lvl+'</b>'; document.getElementById('gameoverScreen').style.display='flex'; }
-
-/* ===================== START / RESTART HANDLERS ===================== */
-document.getElementById('startBtn').addEventListener('click', ()=>{ document.getElementById('startScreen').style.display='none'; resetGame(); state='playing'; AudioSys.musicStart(); });
-document.getElementById('retryBtn').addEventListener('click', ()=>{ document.getElementById('gameoverScreen').style.display='none'; resetGame(); state='playing'; });
-
-function resetGame(){ player.x=0; player.y=0; player.hp=100; player.maxHp=100; player.xp=0; player.xpNext=12; player.lvl=1; player.alive=true; bullets.length=0; enemies.length=0; xpGems.length=0; particles.length=0; wave=0; score=0; startNextWave(); }
-
-/* ===================== MAIN LOOP ===================== */
-let last = performance.now(); function loop(now){ const dt = Math.min(0.05, (now-last)/1000); last=now; update(dt); render(); updateUI(); requestAnimationFrame(loop); }
-requestAnimationFrame(loop);
-
-})();
+// expose for debugging
+window.__GAME = game;
 </script>
 </body>
 </html>
